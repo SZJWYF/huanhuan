@@ -39,6 +39,29 @@ def set_seed(seed: int) -> None:
         torch.cuda.manual_seed_all(seed)
 
 
+def preflight_cuda_compatibility(logger, model_cfg: dict) -> None:
+    """在真正加载模型前做一次 CUDA 兼容性检查。"""
+    if not torch.cuda.is_available():
+        return
+
+    capability = torch.cuda.get_device_capability(0)
+    current_arch = f"sm_{capability[0]}{capability[1]}"
+    compiled_arches = set(torch.cuda.get_arch_list())
+    logger.info("当前 GPU 计算能力: %s", current_arch)
+    logger.info("当前 PyTorch 编译支持的 CUDA 架构: %s", ", ".join(sorted(compiled_arches)))
+
+    if capability[0] >= 12 and model_cfg.get("load_in_4bit", False):
+        logger.warning("检测到 Blackwell/SM120 GPU，默认关闭 4bit bitsandbytes 量化加载以避免 no kernel image 错误。")
+        model_cfg["load_in_4bit"] = False
+
+    if compiled_arches and current_arch not in compiled_arches:
+        raise RuntimeError(
+            f"当前 PyTorch 二进制不支持 {current_arch}，但当前 GPU 是 {torch.cuda.get_device_name(0)}。"
+            "这不是项目代码问题，而是 PyTorch/CUDA 二进制兼容问题。"
+            "请安装支持 Blackwell/RTX 5090 的 PyTorch 构建后再训练。"
+        )
+
+
 def main() -> None:
     args = parse_args()
     loaded = load_yaml_config(PROJECT_ROOT / args.config)
@@ -62,6 +85,8 @@ def main() -> None:
         logger.info("当前 GPU: %s", torch.cuda.get_device_name(0))
     else:
         logger.warning("未检测到 CUDA，本项目目标是 Linux + NVIDIA GPU 环境。")
+
+    preflight_cuda_compatibility(logger, model_cfg)
 
     logger.info("优先检查本地模型目录: %s", model_cfg.get("local_model_path", "<未配置>"))
     local_model_path = resolve_model_path(model_cfg, loaded.resolve_path)

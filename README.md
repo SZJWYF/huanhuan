@@ -92,8 +92,9 @@ bash shell/stop_linux.sh
 - 当前脚本默认直接使用系统里的 `python3.12`
 - 当前训练与合并脚本会优先加载 `/home/waas/models/Qwen/Qwen3-8B`，只有该目录不存在时才回退到 ModelScope 下载
 - 如果 tokenizer 报错，优先检查本地路径是否就是实际模型根目录；若它是父目录，脚本现在也会自动尝试识别唯一子模型目录
+- 针对 RTX 5090 / `sm_120`，默认已关闭 `4bit` 量化加载；如果当前 PyTorch 二进制本身不支持 `sm_120`，脚本会在加载模型前直接报错提醒升级环境
 - 默认训练方式：LoRA + `bf16` + 梯度检查点
-- 默认启用 `4bit` 量化加载，若 5090 环境里 `bitsandbytes` 不稳定，可改为 `false`
+- 默认关闭 `4bit` 量化加载；如果后续确认你的 `bitsandbytes + PyTorch` 对 5090 已兼容，再手动改回 `true`
 - `requirements/*.txt` 仍然不强行固定 `torch`，因为你已经指定系统默认环境是 `PyTorch 2.5.1 + CUDA 12.4`
 - 日志目录统一在 `logs/`
 - 合并模型默认输出到 `outputs/merged/huanhuan-qwen-merged/`

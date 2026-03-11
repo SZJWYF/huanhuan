@@ -81,7 +81,7 @@ def build_training_model(model_path: str, model_cfg: dict[str, Any], lora_cfg: d
     model = AutoModelForCausalLM.from_pretrained(
         model_path,
         trust_remote_code=model_cfg["trust_remote_code"],
-        torch_dtype=torch_dtype,
+        dtype=torch_dtype,
         quantization_config=quantization_config,
         attn_implementation=attn_impl,
         device_map="auto",
@@ -110,6 +110,6 @@ def build_merge_model(model_path: str, trust_remote_code: bool, dtype_name: str)
     return AutoModelForCausalLM.from_pretrained(
         model_path,
         trust_remote_code=trust_remote_code,
-        torch_dtype=resolve_torch_dtype(dtype_name),
+        dtype=resolve_torch_dtype(dtype_name),
         device_map="auto",
     )

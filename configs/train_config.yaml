@@ -9,7 +9,7 @@ model:
   trust_remote_code: true
   torch_dtype: "bfloat16"
   attn_implementation: "auto"
-  load_in_4bit: true
+  load_in_4bit: false
   bnb_4bit_quant_type: "nf4"
   bnb_4bit_use_double_quant: true
   bnb_4bit_compute_dtype: "bfloat16"
