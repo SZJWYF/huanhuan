@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import inspect
 import random
 import sys
 from pathlib import Path
@@ -60,6 +61,59 @@ def preflight_cuda_compatibility(logger, model_cfg: dict) -> None:
             "这不是项目代码问题，而是 PyTorch/CUDA 二进制兼容问题。"
             "请安装支持 Blackwell/RTX 5090 的 PyTorch 构建后再训练。"
         )
+
+
+def build_training_arguments(paths, project_cfg: dict, training_cfg: dict, has_validation: bool, logger):
+    """根据当前 transformers 版本动态构造 TrainingArguments。"""
+    signature = inspect.signature(TrainingArguments.__init__)
+    supported_params = set(signature.parameters)
+
+    kwargs = {
+        "output_dir": str(paths.trainer_dir),
+        "run_name": training_cfg["run_name"],
+        "num_train_epochs": training_cfg["num_train_epochs"],
+        "learning_rate": training_cfg["learning_rate"],
+        "weight_decay": training_cfg["weight_decay"],
+        "warmup_ratio": training_cfg["warmup_ratio"],
+        "lr_scheduler_type": training_cfg["lr_scheduler_type"],
+        "per_device_train_batch_size": training_cfg["per_device_train_batch_size"],
+        "per_device_eval_batch_size": training_cfg["per_device_eval_batch_size"],
+        "gradient_accumulation_steps": training_cfg["gradient_accumulation_steps"],
+        "gradient_checkpointing": training_cfg["gradient_checkpointing"],
+        "max_grad_norm": training_cfg["max_grad_norm"],
+        "logging_steps": training_cfg["logging_steps"],
+        "save_steps": training_cfg["save_steps"],
+        "eval_steps": training_cfg["eval_steps"],
+        "save_total_limit": training_cfg["save_total_limit"],
+        "max_steps": training_cfg["max_steps"],
+        "optim": training_cfg["optim"],
+        "bf16": training_cfg["bf16"],
+        "fp16": training_cfg["fp16"],
+        "tf32": training_cfg["tf32"],
+        "dataloader_num_workers": training_cfg["dataloader_num_workers"],
+        "report_to": training_cfg["report_to"],
+        "logging_dir": str(paths.run_dir / "tensorboard"),
+        "remove_unused_columns": False,
+        "seed": project_cfg["seed"],
+    }
+
+    eval_value = "steps" if has_validation else "no"
+    if "eval_strategy" in supported_params:
+        kwargs["eval_strategy"] = eval_value
+    elif "evaluation_strategy" in supported_params:
+        kwargs["evaluation_strategy"] = eval_value
+
+    if "save_safetensors" in supported_params:
+        kwargs["save_safetensors"] = True
+    else:
+        logger.warning("当前 transformers 版本不支持 save_safetensors，已自动跳过该参数。")
+
+    filtered_kwargs = {key: value for key, value in kwargs.items() if key in supported_params}
+    skipped_kwargs = sorted(set(kwargs) - set(filtered_kwargs))
+    if skipped_kwargs:
+        logger.warning("以下 TrainingArguments 参数当前版本不支持，已自动跳过: %s", ", ".join(skipped_kwargs))
+
+    return TrainingArguments(**filtered_kwargs)
 
 
 def main() -> None:
@@ -139,35 +193,12 @@ def main() -> None:
     )
     logger.info("训练输出目录: %s", paths.run_dir)
 
-    training_args = TrainingArguments(
-        output_dir=str(paths.trainer_dir),
-        run_name=training_cfg["run_name"],
-        num_train_epochs=training_cfg["num_train_epochs"],
-        learning_rate=training_cfg["learning_rate"],
-        weight_decay=training_cfg["weight_decay"],
-        warmup_ratio=training_cfg["warmup_ratio"],
-        lr_scheduler_type=training_cfg["lr_scheduler_type"],
-        per_device_train_batch_size=training_cfg["per_device_train_batch_size"],
-        per_device_eval_batch_size=training_cfg["per_device_eval_batch_size"],
-        gradient_accumulation_steps=training_cfg["gradient_accumulation_steps"],
-        gradient_checkpointing=training_cfg["gradient_checkpointing"],
-        max_grad_norm=training_cfg["max_grad_norm"],
-        logging_steps=training_cfg["logging_steps"],
-        save_steps=training_cfg["save_steps"],
-        eval_steps=training_cfg["eval_steps"],
-        save_total_limit=training_cfg["save_total_limit"],
-        max_steps=training_cfg["max_steps"],
-        optim=training_cfg["optim"],
-        bf16=training_cfg["bf16"],
-        fp16=training_cfg["fp16"],
-        tf32=training_cfg["tf32"],
-        dataloader_num_workers=training_cfg["dataloader_num_workers"],
-        report_to=training_cfg["report_to"],
-        eval_strategy="steps" if "validation" in dataset_dict else "no",
-        logging_dir=str(paths.run_dir / "tensorboard"),
-        remove_unused_columns=False,
-        save_safetensors=True,
-        seed=project_cfg["seed"],
+    training_args = build_training_arguments(
+        paths=paths,
+        project_cfg=project_cfg,
+        training_cfg=training_cfg,
+        has_validation="validation" in dataset_dict,
+        logger=logger,
     )
 
     trainer = Trainer(
