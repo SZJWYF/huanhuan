@@ -6,6 +6,7 @@ import argparse
 import os
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -83,10 +84,23 @@ def main() -> None:
         cwd=str(PROJECT_ROOT),
         env=os.environ.copy(),
     )
+    handle.close()
     write_pid_file(pid_file, process.pid)
     logger.info("vLLM 已启动，PID=%s，日志文件=%s", process.pid, log_file)
+
+    # vLLM 常见失败是进程秒退（环境/显存/模型加载错误），这里提前探测并给出日志尾部。
+    time.sleep(3)
+    return_code = process.poll()
+    if return_code is not None:
+        log_tail = ""
+        if log_file.exists():
+            lines = log_file.read_text(encoding="utf-8", errors="replace").splitlines()
+            log_tail = "\n".join(lines[-40:])
+        raise RuntimeError(
+            f"vLLM 启动后立即退出，返回码={return_code}，日志文件={log_file}\n"
+            f"最近日志:\n{log_tail if log_tail else '(日志为空)'}"
+        )
 
 
 if __name__ == "__main__":
     main()
-
