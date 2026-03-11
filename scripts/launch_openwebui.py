@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -63,7 +64,17 @@ def main() -> None:
     )
     logger.info("Open WebUI 环境变量文件已写入: %s", env_file)
 
-    command = ["open-webui", "serve", "--host", server_cfg["webui_host"], "--port", str(server_cfg["webui_port"])]
+    custom_bin = os.environ.get("OPENWEBUI_BIN")
+    python_bin_dir = Path(sys.executable).resolve().parent
+    python_sidecar_bin = python_bin_dir / "open-webui"
+    resolved_bin = custom_bin or (str(python_sidecar_bin) if python_sidecar_bin.exists() else shutil.which("open-webui"))
+    if not resolved_bin:
+        raise RuntimeError(
+            "未找到 open-webui 可执行文件。请先执行 `bash shell/install_serve_env.sh`，"
+            "或通过环境变量 OPENWEBUI_BIN 指定可执行文件绝对路径。"
+        )
+
+    command = [resolved_bin, "serve", "--host", server_cfg["webui_host"], "--port", str(server_cfg["webui_port"])]
     logger.info("将启动 Open WebUI，命令如下: %s", " ".join(command))
 
     runtime_env = os.environ.copy()
@@ -83,4 +94,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

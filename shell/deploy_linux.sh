@@ -18,6 +18,26 @@ fi
 
 export PYTHONPATH="$PROJECT_ROOT/src:${PYTHONPATH:-}"
 
+"$PYTHON_BIN" - <<'PY'
+import os
+import shutil
+import sys
+from pathlib import Path
+
+custom_bin = os.environ.get("OPENWEBUI_BIN")
+python_bin_dir = Path(sys.executable).resolve().parent
+python_sidecar_bin = python_bin_dir / "open-webui"
+resolved_bin = custom_bin or (str(python_sidecar_bin) if python_sidecar_bin.exists() else shutil.which("open-webui"))
+
+if not resolved_bin:
+    raise SystemExit(
+        "[ERROR] 未找到 open-webui 可执行文件。请先执行 `bash shell/install_serve_env.sh`，"
+        "或设置 OPENWEBUI_BIN=/绝对路径/open-webui"
+    )
+
+print(f"[INFO] 检测到 open-webui 可执行文件: {resolved_bin}")
+PY
+
 "$PYTHON_BIN" scripts/launch_vllm.py --config configs/deploy_config.yaml
 sleep 5
 "$PYTHON_BIN" scripts/launch_openwebui.py --config configs/deploy_config.yaml
