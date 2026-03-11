@@ -16,7 +16,7 @@ if str(SRC_ROOT) not in sys.path:
 from huanhuan_sft.config import load_yaml_config
 from huanhuan_sft.logging_utils import build_log_path, setup_logger
 from huanhuan_sft.model_utils import build_merge_model, build_tokenizer
-from huanhuan_sft.modelscope_utils import download_model_from_modelscope
+from huanhuan_sft.modelscope_utils import resolve_model_path
 
 
 def parse_args() -> argparse.Namespace:
@@ -38,10 +38,8 @@ def main() -> None:
     training_cfg = config["training"]
     merge_cfg = config["merge"]
 
-    local_model_path = download_model_from_modelscope(
-        model_id=model_cfg["model_id"],
-        target_dir=loaded.resolve_path(model_cfg["local_dir"]),
-    )
+    logger.info("优先检查本地模型目录: %s", model_cfg.get("local_model_path", "<未配置>"))
+    local_model_path = resolve_model_path(model_cfg, loaded.resolve_path)
 
     run_dir = loaded.resolve_path(training_cfg["output_root"]) / training_cfg["run_name"]
     adapter_dir = run_dir / merge_cfg["adapter_subdir"]

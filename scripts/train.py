@@ -20,7 +20,7 @@ from huanhuan_sft.config import load_yaml_config
 from huanhuan_sft.data_utils import build_dataset_dict, load_raw_records
 from huanhuan_sft.logging_utils import build_log_path, setup_logger
 from huanhuan_sft.model_utils import build_tokenizer, build_training_model
-from huanhuan_sft.modelscope_utils import download_model_from_modelscope
+from huanhuan_sft.modelscope_utils import resolve_model_path
 from huanhuan_sft.train_utils import FileLoggingCallback, SupervisedDataCollator, prepare_training_paths, save_training_summary
 
 
@@ -63,12 +63,8 @@ def main() -> None:
     else:
         logger.warning("未检测到 CUDA，本项目目标是 Linux + NVIDIA GPU 环境。")
 
-    base_model_dir = loaded.resolve_path(model_cfg["local_dir"])
-    logger.info("准备下载或复用基座模型，目标目录: %s", base_model_dir)
-    local_model_path = download_model_from_modelscope(
-        model_id=model_cfg["model_id"],
-        target_dir=base_model_dir,
-    )
+    logger.info("优先检查本地模型目录: %s", model_cfg.get("local_model_path", "<未配置>"))
+    local_model_path = resolve_model_path(model_cfg, loaded.resolve_path)
     logger.info("基座模型已就绪: %s", local_model_path)
 
     tokenizer = build_tokenizer(

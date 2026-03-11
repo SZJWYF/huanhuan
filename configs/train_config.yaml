@@ -4,6 +4,7 @@ project:
 
 model:
   model_id: "Qwen/Qwen3-8B-Instruct"
+  local_model_path: "/home/waas/models/Qwen"
   local_dir: "outputs/models/base_model"
   trust_remote_code: true
   torch_dtype: "bfloat16"

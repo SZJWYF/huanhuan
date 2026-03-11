@@ -13,7 +13,7 @@ if str(SRC_ROOT) not in sys.path:
 
 from huanhuan_sft.config import load_yaml_config
 from huanhuan_sft.logging_utils import build_log_path, ensure_dir, setup_logger
-from huanhuan_sft.modelscope_utils import download_model_from_modelscope
+from huanhuan_sft.modelscope_utils import download_model_from_modelscope, resolve_model_path
 
 
 def parse_args() -> argparse.Namespace:
@@ -31,8 +31,17 @@ def main() -> None:
     logger = setup_logger("download_model", log_file)
 
     model_cfg = loaded.raw["model"]
+    explicit_local_path = model_cfg.get("local_model_path")
+    if explicit_local_path:
+        logger.info("配置中声明的本地模型目录: %s", explicit_local_path)
+
     target_dir = loaded.resolve_path(model_cfg["local_dir"])
     ensure_dir(target_dir)
+
+    if explicit_local_path and Path(explicit_local_path).exists():
+        local_path = resolve_model_path(model_cfg, loaded.resolve_path)
+        logger.info("检测到本地模型已存在，跳过下载，直接使用: %s", local_path)
+        return
 
     logger.info("开始从 ModelScope 下载模型: %s", model_cfg["model_id"])
     logger.info("目标目录: %s", target_dir)
@@ -46,4 +55,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-
