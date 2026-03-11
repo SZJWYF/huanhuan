@@ -3,4 +3,3 @@ open-webui>=0.6.0
 openai>=1.68.0
 pyyaml>=6.0.2
 requests>=2.32.3
-vllm>=0.8.5
