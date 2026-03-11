@@ -116,6 +116,39 @@ def build_training_arguments(paths, project_cfg: dict, training_cfg: dict, has_v
     return TrainingArguments(**filtered_kwargs)
 
 
+def _normalize_report_to(value) -> list[str]:
+    if value is None:
+        return []
+    if isinstance(value, str):
+        return [value]
+    return [str(item) for item in value]
+
+
+def prepare_logging_dirs(training_args: TrainingArguments, logger) -> None:
+    """为不同 transformers 版本提前创建日志目录，避免 TensorBoard 异步写入时报目录不存在。"""
+    output_dir = Path(training_args.output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    logging_dir_value = getattr(training_args, "logging_dir", None)
+    logging_dir = Path(logging_dir_value) if logging_dir_value else None
+    if logging_dir is not None:
+        logging_dir.mkdir(parents=True, exist_ok=True)
+
+    report_to = _normalize_report_to(getattr(training_args, "report_to", []))
+    if "tensorboard" in report_to:
+        (output_dir / "runs").mkdir(parents=True, exist_ok=True)
+        if logging_dir is None:
+            logging_dir = output_dir / "runs"
+        (logging_dir / ".keep").touch(exist_ok=True)
+
+    logger.info(
+        "训练参数目录检查: output_dir=%s, logging_dir=%s, report_to=%s",
+        output_dir,
+        logging_dir if logging_dir is not None else "<none>",
+        report_to,
+    )
+
+
 def main() -> None:
     args = parse_args()
     loaded = load_yaml_config(PROJECT_ROOT / args.config)
@@ -200,6 +233,7 @@ def main() -> None:
         has_validation="validation" in dataset_dict,
         logger=logger,
     )
+    prepare_logging_dirs(training_args, logger)
 
     trainer = Trainer(
         model=model,
