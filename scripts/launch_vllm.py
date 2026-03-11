@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import subprocess
 import sys
@@ -43,6 +44,21 @@ def main() -> None:
     model_dir = loaded.resolve_path(model_cfg["merged_model_dir"])
     if not model_dir.exists():
         raise FileNotFoundError(f"未找到合并模型目录: {model_dir}")
+    metadata_file = model_dir / "merge_metadata.json"
+    if metadata_file.exists():
+        try:
+            metadata = json.loads(metadata_file.read_text(encoding="utf-8"))
+            logger.info(
+                "检测到合并元数据: merged_at_utc=%s, base_model_path=%s, adapter_dir=%s, train_global_step=%s",
+                metadata.get("merged_at_utc"),
+                metadata.get("base_model_path"),
+                metadata.get("adapter_dir"),
+                metadata.get("train_global_step"),
+            )
+        except Exception:
+            logger.exception("读取合并元数据失败: %s", metadata_file)
+    else:
+        logger.warning("未找到合并元数据文件: %s（建议先重新执行 merge）", metadata_file)
 
     if is_port_open(server_cfg["host"], int(server_cfg["vllm_port"])):
         raise RuntimeError(f"端口已被占用，请先释放: {server_cfg['host']}:{server_cfg['vllm_port']}")
