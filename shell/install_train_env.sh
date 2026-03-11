@@ -2,6 +2,7 @@
 set -euo pipefail
 
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+PYTHON_BIN="${PYTHON_BIN:-python3.12}"
 cd "$PROJECT_ROOT"
 
 mkdir -p logs
@@ -10,12 +11,25 @@ exec > >(tee -a "$LOG_FILE") 2>&1
 
 echo "[INFO] 项目根目录: $PROJECT_ROOT"
 echo "[INFO] 日志文件: $LOG_FILE"
+echo "[INFO] 使用系统 Python: $PYTHON_BIN"
 
-python3 -m venv .venv-train
-source .venv-train/bin/activate
+if ! command -v "$PYTHON_BIN" >/dev/null 2>&1; then
+  echo "[ERROR] 未找到 $PYTHON_BIN，请确认系统已安装 Python 3.12.4"
+  exit 1
+fi
 
-python -m pip install --upgrade pip setuptools wheel
-python -m pip install -r requirements/train.txt
+"$PYTHON_BIN" --version
+"$PYTHON_BIN" -m pip --version
+"$PYTHON_BIN" -m pip install --upgrade pip setuptools wheel
+"$PYTHON_BIN" -m pip install -r requirements/train.txt
+"$PYTHON_BIN" - <<'PY'
+import torch
+print(f"[INFO] torch version: {torch.__version__}")
+print(f"[INFO] cuda available: {torch.cuda.is_available()}")
+print(f"[INFO] torch cuda version: {torch.version.cuda}")
+if torch.cuda.is_available():
+    print(f"[INFO] gpu count: {torch.cuda.device_count()}")
+    print(f"[INFO] gpu[0]: {torch.cuda.get_device_name(0)}")
+PY
 
-echo "[INFO] 训练环境安装完成。"
-
+echo "[INFO] 训练依赖安装完成，未创建虚拟环境。"

@@ -61,6 +61,12 @@ huanhuan/
 
 ## 3. Linux 使用步骤
 
+默认假设你的 Linux 机器已经装好了以下基础环境，并且直接使用系统环境运行，不创建 conda / venv：
+
+- Python `3.12.4`
+- PyTorch `2.5.1`
+- CUDA `12.4`
+
 ```bash
 bash shell/install_train_env.sh
 bash shell/train_linux.sh
@@ -82,8 +88,9 @@ bash shell/stop_linux.sh
 
 ## 4. 关键说明
 
+- 当前脚本默认直接使用系统里的 `python3.12`
 - 默认训练方式：LoRA + `bf16` + 梯度检查点
 - 默认启用 `4bit` 量化加载，若 5090 环境里 `bitsandbytes` 不稳定，可改为 `false`
-- `requirements/*.txt` 没有强行固定 `torch`，建议你按 Linux + CUDA 版本单独安装官方匹配 wheel
+- `requirements/*.txt` 仍然不强行固定 `torch`，因为你已经指定系统默认环境是 `PyTorch 2.5.1 + CUDA 12.4`
 - 日志目录统一在 `logs/`
 - 合并模型默认输出到 `outputs/merged/huanhuan-qwen-merged/`
