@@ -18,6 +18,69 @@ fi
 
 export PYTHONPATH="$PROJECT_ROOT/src:${PYTHONPATH:-}"
 
+get_listen_pids() {
+  local port="$1"
+
+  if command -v lsof >/dev/null 2>&1; then
+    lsof -t -iTCP:"$port" -sTCP:LISTEN 2>/dev/null | awk 'NF' | sort -u
+    return 0
+  fi
+
+  if command -v fuser >/dev/null 2>&1; then
+    fuser -n tcp "$port" 2>/dev/null | tr ' ' '\n' | awk 'NF' | sort -u
+    return 0
+  fi
+
+  if command -v ss >/dev/null 2>&1; then
+    ss -lntp "sport = :$port" 2>/dev/null \
+      | awk -F 'pid=' 'NR>1 && NF>1 { split($2, a, ","); print a[1] }' \
+      | awk 'NF' | sort -u
+    return 0
+  fi
+
+  echo "[WARN] 无法检测端口 $port 的占用（缺少 lsof/fuser/ss）"
+  return 0
+}
+
+ensure_port_free() {
+  local port="$1"
+  local pids=()
+  local remaining_pids=()
+  local final_pids=()
+
+  mapfile -t pids < <(get_listen_pids "$port" || true)
+  if [ "${#pids[@]}" -eq 0 ]; then
+    echo "[INFO] 端口 $port 空闲。"
+    return 0
+  fi
+
+  echo "[WARN] 端口 $port 被占用，准备终止进程: ${pids[*]}"
+  for pid in "${pids[@]}"; do
+    [ -n "$pid" ] || continue
+    ps -fp "$pid" || true
+    kill -TERM "$pid" 2>/dev/null || true
+  done
+
+  sleep 2
+  mapfile -t remaining_pids < <(get_listen_pids "$port" || true)
+  if [ "${#remaining_pids[@]}" -gt 0 ]; then
+    echo "[WARN] 端口 $port 仍被占用，发送 SIGKILL: ${remaining_pids[*]}"
+    for pid in "${remaining_pids[@]}"; do
+      [ -n "$pid" ] || continue
+      kill -KILL "$pid" 2>/dev/null || true
+    done
+    sleep 1
+  fi
+
+  mapfile -t final_pids < <(get_listen_pids "$port" || true)
+  if [ "${#final_pids[@]}" -gt 0 ]; then
+    echo "[ERROR] 端口 $port 释放失败，仍被占用: ${final_pids[*]}"
+    return 1
+  fi
+
+  echo "[INFO] 端口 $port 已释放。"
+}
+
 "$PYTHON_BIN" - <<'PY'
 import os
 import shutil
@@ -37,6 +100,21 @@ if not resolved_bin:
 
 print(f"[INFO] 检测到 open-webui 可执行文件: {resolved_bin}")
 PY
+
+read -r VLLM_PORT WEBUI_PORT < <("$PYTHON_BIN" - <<'PY'
+from pathlib import Path
+import yaml
+
+config = yaml.safe_load(Path("configs/deploy_config.yaml").read_text(encoding="utf-8"))
+print(config["server"]["vllm_port"], config["server"]["webui_port"])
+PY
+)
+
+echo "[INFO] 启动前检查端口占用并自动释放: vLLM=$VLLM_PORT, OpenWebUI=$WEBUI_PORT"
+ensure_port_free "$VLLM_PORT"
+if [ "$WEBUI_PORT" != "$VLLM_PORT" ]; then
+  ensure_port_free "$WEBUI_PORT"
+fi
 
 "$PYTHON_BIN" scripts/launch_vllm.py --config configs/deploy_config.yaml
 sleep 5
