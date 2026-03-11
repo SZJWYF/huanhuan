@@ -1,0 +1,27 @@
+project:
+  name: "huanhuan-qwen-deploy"
+
+model:
+  merged_model_dir: "outputs/merged/huanhuan-qwen-merged"
+  trust_remote_code: true
+  dtype: "bfloat16"
+
+server:
+  host: "0.0.0.0"
+  vllm_port: 8000
+  webui_host: "0.0.0.0"
+  webui_port: 3000
+  served_model_name: "huanhuan-qwen"
+  api_key: "EMPTY"
+  max_model_len: 8192
+  gpu_memory_utilization: 0.92
+  max_num_seqs: 8
+  disable_log_requests: true
+  uvicorn_access_log: false
+
+paths:
+  data_dir: "deployment/open_webui_data"
+  pid_dir: "run"
+  log_dir: "logs"
+  openwebui_env_file: "deployment/runtime/openwebui.env"
+

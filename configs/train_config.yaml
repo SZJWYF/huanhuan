@@ -1,0 +1,71 @@
+project:
+  name: "huanhuan-qwen-sft"
+  seed: 42
+
+model:
+  model_id: "Qwen/Qwen3-8B-Instruct"
+  local_dir: "outputs/models/base_model"
+  trust_remote_code: true
+  torch_dtype: "bfloat16"
+  attn_implementation: "auto"
+  load_in_4bit: true
+  bnb_4bit_quant_type: "nf4"
+  bnb_4bit_use_double_quant: true
+  bnb_4bit_compute_dtype: "bfloat16"
+
+data:
+  train_file: "datasets/huanhuan.json"
+  input_field: "input"
+  instruction_field: "instruction"
+  output_field: "output"
+  system_prompt: "你是甄嬛，回答时需要贴合甄嬛传人物语气，表达自然、简洁、古典。"
+  cutoff_len: 2048
+  val_split_ratio: 0.02
+  shuffle: true
+
+lora:
+  r: 16
+  alpha: 32
+  dropout: 0.05
+  bias: "none"
+  task_type: "CAUSAL_LM"
+  target_modules:
+    - "q_proj"
+    - "k_proj"
+    - "v_proj"
+    - "o_proj"
+    - "gate_proj"
+    - "up_proj"
+    - "down_proj"
+
+training:
+  output_root: "outputs/train_runs"
+  run_name: "huanhuan-qwen-lora"
+  max_seq_length: 2048
+  num_train_epochs: 3
+  learning_rate: 2.0e-4
+  weight_decay: 0.01
+  warmup_ratio: 0.03
+  lr_scheduler_type: "cosine"
+  per_device_train_batch_size: 2
+  per_device_eval_batch_size: 2
+  gradient_accumulation_steps: 8
+  gradient_checkpointing: true
+  max_grad_norm: 1.0
+  logging_steps: 10
+  save_steps: 100
+  eval_steps: 100
+  save_total_limit: 3
+  max_steps: -1
+  optim: "paged_adamw_32bit"
+  bf16: true
+  fp16: false
+  tf32: true
+  dataloader_num_workers: 2
+  report_to:
+    - "tensorboard"
+
+merge:
+  adapter_subdir: "adapter"
+  output_dir: "outputs/merged/huanhuan-qwen-merged"
+  safe_serialization: true
