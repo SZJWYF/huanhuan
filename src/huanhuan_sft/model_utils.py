@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import importlib.util
 from typing import Any
 
 import torch
@@ -26,12 +27,29 @@ def resolve_torch_dtype(dtype_name: str) -> torch.dtype:
 
 
 def build_tokenizer(model_path: str, trust_remote_code: bool) -> Any:
-    """加载 tokenizer，并确保 pad_token 一定存在。"""
-    tokenizer = AutoTokenizer.from_pretrained(
-        model_path,
-        trust_remote_code=trust_remote_code,
-        use_fast=False,
-    )
+    """加载 tokenizer，并确保 pad_token 一定存在。
+
+    这里显式优先 slow tokenizer。
+    如果底层仍触发 fast tokenizer 转换失败，就补充更清晰的报错信息。
+    """
+    try:
+        tokenizer = AutoTokenizer.from_pretrained(
+            model_path,
+            trust_remote_code=trust_remote_code,
+            use_fast=False,
+        )
+    except ValueError as exc:
+        sentencepiece_installed = importlib.util.find_spec("sentencepiece") is not None
+        tiktoken_installed = importlib.util.find_spec("tiktoken") is not None
+        raise ValueError(
+            f"加载 tokenizer 失败，模型目录为: {model_path}。"
+            f"这通常有两类原因："
+            f"(1) 当前路径不是实际模型根目录；"
+            f"(2) tokenizer 依赖缺失。"
+            f"当前环境 sentencepiece={sentencepiece_installed}, tiktoken={tiktoken_installed}。"
+            f"原始错误: {exc}"
+        ) from exc
+
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
     return tokenizer
@@ -95,4 +113,3 @@ def build_merge_model(model_path: str, trust_remote_code: bool, dtype_name: str)
         torch_dtype=resolve_torch_dtype(dtype_name),
         device_map="auto",
     )
-

@@ -67,10 +67,14 @@ def main() -> None:
     local_model_path = resolve_model_path(model_cfg, loaded.resolve_path)
     logger.info("基座模型已就绪: %s", local_model_path)
 
-    tokenizer = build_tokenizer(
-        model_path=str(local_model_path),
-        trust_remote_code=model_cfg["trust_remote_code"],
-    )
+    try:
+        tokenizer = build_tokenizer(
+            model_path=str(local_model_path),
+            trust_remote_code=model_cfg["trust_remote_code"],
+        )
+    except Exception:
+        logger.exception("tokenizer 加载失败，请重点检查模型目录和 sentencepiece/tiktoken 依赖。")
+        raise
     logger.info("tokenizer 加载完成，pad_token_id=%s, eos_token_id=%s", tokenizer.pad_token_id, tokenizer.eos_token_id)
 
     dataset_path = loaded.resolve_path(data_cfg["train_file"])

@@ -91,6 +91,7 @@ bash shell/stop_linux.sh
 
 - 当前脚本默认直接使用系统里的 `python3.12`
 - 当前训练与合并脚本会优先加载 `/home/waas/models/Qwen`，只有该目录不存在时才回退到 ModelScope 下载
+- 如果 tokenizer 报错，优先检查 `/home/waas/models/Qwen` 是否就是实际模型根目录；若它是父目录，脚本现在会自动尝试识别唯一子模型目录
 - 默认训练方式：LoRA + `bf16` + 梯度检查点
 - 默认启用 `4bit` 量化加载，若 5090 环境里 `bitsandbytes` 不稳定，可改为 `false`
 - `requirements/*.txt` 仍然不强行固定 `torch`，因为你已经指定系统默认环境是 `PyTorch 2.5.1 + CUDA 12.4`
